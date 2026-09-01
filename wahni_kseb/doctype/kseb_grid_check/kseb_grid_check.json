@@ -1,0 +1,243 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "KSEB-GRID-.#####",
+ "creation": "2026-08-13 15:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "lead",
+  "column_break_dasy",
+  "consumer_no",
+  "column_break_aijl",
+  "registered_mobile",
+  "section_break_consumer",
+  "consumer_name",
+  "customer_address",
+  "column_break_dvrl",
+  "tariff",
+  "phase",
+  "connected_load",
+  "section_break_kseb",
+  "section",
+  "section_code",
+  "section_phone",
+  "section_email",
+  "column_break_tnfc",
+  "subdivision",
+  "subdivision_email",
+  "division",
+  "division_phone",
+  "division_email",
+  "section_break_transformer",
+  "transformer_name",
+  "allowed_cap",
+  "regi",
+  "column_break_qqgc",
+  "comp_cap",
+  "balance_available",
+  "proposed_solar_capacity",
+  "section_break_result",
+  "grid_availability",
+  "column_break_ymhl",
+  "last_checked"
+ ],
+ "fields": [
+  {
+   "fieldname": "lead",
+   "fieldtype": "Link",
+   "label": "Lead",
+   "options": "Lead"
+  },
+  {
+   "fieldname": "consumer_no",
+   "fieldtype": "Data",
+   "label": "Consumer Number"
+  },
+  {
+   "fieldname": "registered_mobile",
+   "fieldtype": "Data",
+   "label": "Registered Mobile"
+  },
+  {
+   "fieldname": "section_break_consumer",
+   "fieldtype": "Section Break",
+   "label": "KSEB Consumer"
+  },
+  {
+   "fieldname": "consumer_name",
+   "fieldtype": "Data",
+   "label": "Consumer Name"
+  },
+  {
+   "fieldname": "customer_address",
+   "fieldtype": "Small Text",
+   "label": "Customer Address"
+  },
+  {
+   "fieldname": "tariff",
+   "fieldtype": "Data",
+   "label": "Tariff"
+  },
+  {
+   "fieldname": "phase",
+   "fieldtype": "Data",
+   "label": "Phase"
+  },
+  {
+   "fieldname": "connected_load",
+   "fieldtype": "Data",
+   "label": "Connected Load"
+  },
+  {
+   "fieldname": "section_break_kseb",
+   "fieldtype": "Section Break",
+   "label": "KSEB Section"
+  },
+  {
+   "fieldname": "section",
+   "fieldtype": "Data",
+   "label": "Section"
+  },
+  {
+   "fieldname": "section_code",
+   "fieldtype": "Data",
+   "label": "Section Code"
+  },
+  {
+   "fieldname": "section_phone",
+   "fieldtype": "Data",
+   "label": "Section Phone"
+  },
+  {
+   "fieldname": "section_email",
+   "fieldtype": "Data",
+   "label": "Section Email"
+  },
+  {
+   "fieldname": "subdivision",
+   "fieldtype": "Data",
+   "label": "Sub Division"
+  },
+  {
+   "fieldname": "subdivision_email",
+   "fieldtype": "Data",
+   "label": "Sub Division Email"
+  },
+  {
+   "fieldname": "division",
+   "fieldtype": "Data",
+   "label": "Division"
+  },
+  {
+   "fieldname": "division_phone",
+   "fieldtype": "Data",
+   "label": "Division Phone"
+  },
+  {
+   "fieldname": "division_email",
+   "fieldtype": "Data",
+   "label": "Division Email"
+  },
+  {
+   "fieldname": "section_break_transformer",
+   "fieldtype": "Section Break",
+   "label": "Transformer / Grid Capacity"
+  },
+  {
+   "fieldname": "transformer_name",
+   "fieldtype": "Data",
+   "label": "DTR / Transformer"
+  },
+  {
+   "fieldname": "allowed_cap",
+   "fieldtype": "Float",
+   "label": "Allowed Solar Capacity (kW)"
+  },
+  {
+   "fieldname": "regi",
+   "fieldtype": "Float",
+   "label": "Registered Solar Capacity (kW)"
+  },
+  {
+   "fieldname": "comp_cap",
+   "fieldtype": "Float",
+   "label": "Connected Solar Capacity (kW)"
+  },
+  {
+   "fieldname": "balance_available",
+   "fieldtype": "Float",
+   "label": "Balance Available (kW)"
+  },
+  {
+   "fieldname": "section_break_result",
+   "fieldtype": "Section Break",
+   "label": "Result"
+  },
+  {
+   "fieldname": "grid_availability",
+   "fieldtype": "Data",
+   "label": "Grid Availability"
+  },
+  {
+   "fieldname": "column_break_dasy",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_aijl",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_dvrl",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_tnfc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_qqgc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "proposed_solar_capacity",
+   "fieldtype": "Float",
+   "label": "Proposed Solar Capacity (kW)"
+  },
+  {
+   "fieldname": "column_break_ymhl",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "last_checked",
+   "fieldtype": "Datetime",
+   "label": "Last Checked",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-08-19 13:54:59.746876",
+ "modified_by": "Administrator",
+ "module": "KSEB Data",
+ "name": "KSEB Grid Check",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
