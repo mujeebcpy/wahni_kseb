@@ -70,7 +70,7 @@ def check_grid_capacity(lead, consumer_no, registered_mobile):
     doc.consumer_name = result.bill.consumer_name
     doc.customer_address = result.bill.customer_address
     doc.tariff = result.bill.tariff
-    doc.phase = result.bill.phase
+    doc.phase = result.bill.phase.split(" ")[0]
     doc.connected_load = result.bill.connected_load
 
     # KSEB Section
