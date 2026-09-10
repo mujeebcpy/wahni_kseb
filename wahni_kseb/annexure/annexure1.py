@@ -54,14 +54,8 @@ def fill_annexure1(
 def build_annexure1_data(doc) -> Annexure1Data:
     """Build Annexure-1 data from a KSEB Grid Check document."""
 
-    name_address = (
-        f"{doc.consumer_name},{doc.consumer_no},{doc.phase}\n"
-        f"{doc.registered_mobile}\n"
-        f"{doc.customer_address}"
-    )
-
     return Annexure1Data(
-        name_address=name_address,
+        name_address=build_name_address(doc),
         connected_load=str(doc.connected_load or ""),
         solar_capacity=str(doc.proposed_solar_capacity or ""),
         usein_otherplaces="No",
@@ -70,4 +64,13 @@ def build_annexure1_data(doc) -> Annexure1Data:
         completion_date="",
         place_anx1="Thalikulam",
         date_anx1=datetime.date.today().strftime("%d/%m/%Y"),
+    )
+
+
+def build_name_address(doc) -> str:
+    """Use the same consumer details on every annexure."""
+    return (
+        f"{doc.consumer_name},{doc.consumer_no},{doc.phase}\n"
+        f"{doc.registered_mobile}\n"
+        f"{doc.customer_address}"
     )

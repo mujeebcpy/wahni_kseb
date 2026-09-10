@@ -4,40 +4,46 @@ frappe.ui.form.on("KSEB Grid Check", {
             return;
         }
 
-        frm.add_custom_button(__("Generate Annexure 1"), function () {
-            if (!frm.doc.proposed_solar_capacity) {
-                frappe.msgprint({
-                    title: __("Missing Solar Capacity"),
-                    message: __("Please enter Proposed Solar Capacity (kW) before generating Annexure 1."),
-                    indicator: "orange"
-                });
-                return;
-            }
-
-            frappe.call({
-                method: "wahni_kseb.api.generate_annexure1",
-                args: {
-                    kseb_grid_check: frm.doc.name
-                },
-                freeze: true,
-                freeze_message: __("Generating Annexure 1..."),
-                callback(r) {
-                    if (!r.message) {
-                        return;
-                    }
-
+        [1, 2, 3].forEach((annexure_number) => {
+            frm.add_custom_button(__("Annexure {0}", [annexure_number]), async function () {
+                if (!frm.doc.proposed_solar_capacity) {
                     frappe.msgprint({
-                        title: __("Annexure 1 Generated"),
-                        message: __(
-                            'Annexure 1 has been generated successfully. <a href="{0}" target="_blank">Open PDF</a>',
-                            [r.message.file_url]
-                        ),
-                        indicator: "green"
+                        title: __("Missing Solar Capacity"),
+                        message: __("Please enter Proposed Solar Capacity (kW) before generating Annexure {0}.", [annexure_number]),
+                        indicator: "orange"
                     });
-
-                    frm.reload_doc();
+                    return;
                 }
-            });
+
+                if (frm.is_dirty()) {
+                    await frm.save();
+                }
+
+                frappe.call({
+                    method: `wahni_kseb.api.generate_annexure${annexure_number}`,
+                    args: {
+                        kseb_grid_check: frm.doc.name
+                    },
+                    freeze: true,
+                    freeze_message: __("Generating Annexure {0}...", [annexure_number]),
+                    callback(r) {
+                        if (!r.message) {
+                            return;
+                        }
+
+                        frappe.msgprint({
+                            title: __("Annexure {0} Generated", [annexure_number]),
+                            message: __(
+                                'Annexure {0} has been generated successfully. <a href="{1}" target="_blank">Open PDF</a>',
+                                [annexure_number, r.message.file_url]
+                            ),
+                            indicator: "green"
+                        });
+
+                        frm.reload_doc();
+                    }
+                });
+            }, __("Generate"));
         });
     }
 });

@@ -6,6 +6,8 @@ from wahni_kseb.annexure.annexure1 import (
     build_annexure1_data,
     fill_annexure1,
 )
+from wahni_kseb.annexure.annexure2 import build_annexure2_data, fill_annexure2
+from wahni_kseb.annexure.annexure3 import build_annexure3_data, fill_annexure3
 
 @frappe.whitelist()
 def check_grid_capacity(lead, consumer_no, registered_mobile):
@@ -110,11 +112,29 @@ def check_grid_capacity(lead, consumer_no, registered_mobile):
 @frappe.whitelist()
 def generate_annexure1(kseb_grid_check):
     """Generate Annexure-1 PDF for a KSEB Grid Check."""
+    return _generate_annexure(kseb_grid_check, 1, build_annexure1_data, fill_annexure1)
+
+
+@frappe.whitelist()
+def generate_annexure2(kseb_grid_check):
+    """Generate Annexure-2 PDF for a KSEB Grid Check."""
+    return _generate_annexure(kseb_grid_check, 2, build_annexure2_data, fill_annexure2)
+
+
+@frappe.whitelist()
+def generate_annexure3(kseb_grid_check):
+    """Generate Annexure-3 PDF for a KSEB Grid Check."""
+    return _generate_annexure(kseb_grid_check, 3, build_annexure3_data, fill_annexure3)
+
+
+def _generate_annexure(kseb_grid_check, annexure_number, build_data, fill_pdf):
+    """Generate and attach a private annexure PDF to the grid check."""
 
     if not kseb_grid_check:
         frappe.throw("KSEB Grid Check is required.")
 
     doc = frappe.get_doc("KSEB Grid Check", kseb_grid_check)
+    doc.check_permission("write")
 
     if not doc.consumer_name:
         frappe.throw("Consumer Name is missing.")
@@ -124,43 +144,43 @@ def generate_annexure1(kseb_grid_check):
 
     if not doc.proposed_solar_capacity:
         frappe.throw(
-            "Please enter Proposed Solar Capacity (kW) before generating Annexure 1."
+            f"Please enter Proposed Solar Capacity (kW) before generating Annexure {annexure_number}."
         )
 
     # Build data for the PDF
-    data = build_annexure1_data(doc)
+    data = build_data(doc)
 
     # Locate PDF template inside the app
     template = (
         Path(frappe.get_app_path("wahni_kseb"))
         / "templates"
-        / "kseb-Annexure-1.pdf"
+        / f"kseb-Annexure-{annexure_number}.pdf"
     )
 
     if not template.exists():
-        frappe.throw("Annexure 1 PDF template not found.")
+        frappe.throw(f"Annexure {annexure_number} PDF template not found.")
 
     # Temporary output location
     output_dir = Path(frappe.get_site_path("private", "files"))
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    output = output_dir / f"Annexure-1-{doc.name}.pdf"
+    output = output_dir / f"Annexure-{annexure_number}-{doc.name}.pdf"
 
-    fill_annexure1(
+    fill_pdf(
         data=data,
         template=template,
         output=output
     )
     file_doc = frappe.get_doc(
-    {
-        "doctype": "File",
-        "file_name": output.name,
-        "file_url": f"/private/files/{output.name}",
-        "attached_to_doctype": "KSEB Grid Check",
-        "attached_to_name": doc.name,
-        "is_private": 1,
-    }
-)
+        {
+            "doctype": "File",
+            "file_name": output.name,
+            "file_url": f"/private/files/{output.name}",
+            "attached_to_doctype": "KSEB Grid Check",
+            "attached_to_name": doc.name,
+            "is_private": 1,
+        }
+    )
 
     file_doc.insert(ignore_permissions=True)
 
