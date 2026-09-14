@@ -6,17 +6,6 @@ app_email = "mujeebcpy@wahni.io"
 app_license = "gpl-3.0"
 # required_apps = []
 
-fixtures = [
-    {
-        "dt": "Custom Field",
-        "filters": [
-            ["name", "in", [
-                "Lead-custom_kseb_consumer_no",
-                "Lead-custom_kseb_connected_mobile_no",
-            ]]
-        ],
-    }
-]
 # Includes in <head>
 # ------------------
 
