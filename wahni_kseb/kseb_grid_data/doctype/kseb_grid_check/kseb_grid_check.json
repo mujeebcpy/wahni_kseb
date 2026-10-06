@@ -11,6 +11,7 @@
   "consumer_no",
   "column_break_aijl",
   "registered_mobile",
+  "customer_email",
   "section_break_consumer",
   "consumer_name",
   "customer_address",
@@ -40,7 +41,34 @@
   "section_break_result",
   "grid_availability",
   "column_break_ymhl",
-  "last_checked"
+  "last_checked",
+  "annexure_1_details",
+  "is_rooftop",
+  "usein_otherplaces",
+  "tod_bill",
+  "completion_date",
+  "place_anx1",
+  "date_anx1",
+  "annexure_2_details",
+  "component_details",
+  "component_specification",
+  "images_included",
+  "completion_date_anx2",
+  "place_anx2",
+  "date_anx2",
+  "annexure_3_details",
+  "solar_regno",
+  "specification_anx3",
+  "inspection_certificate",
+  "place_anx3",
+  "date_anx3",
+  "acknowledgement_details",
+  "acknowledgement_name",
+  "acknowledgement_date",
+  "application_fee_paid",
+  "application_registration_number",
+  "acknowledging_officer",
+  "officer_designation"
  ],
  "fields": [
   {
@@ -58,6 +86,12 @@
    "fieldname": "registered_mobile",
    "fieldtype": "Data",
    "label": "Registered Mobile"
+  },
+  {
+   "fieldname": "customer_email",
+   "fieldtype": "Data",
+   "label": "Customer Email",
+   "options": "Email"
   },
   {
    "fieldname": "section_break_consumer",
@@ -213,11 +247,155 @@
    "fieldtype": "Datetime",
    "label": "Last Checked",
    "read_only": 1
+  },
+  {
+   "fieldname": "annexure_1_details",
+   "fieldtype": "Section Break",
+   "label": "Annexure I"
+  },
+  {
+   "fieldname": "is_rooftop",
+   "fieldtype": "Data",
+   "label": "Installation Type",
+   "default": "Rooftop"
+  },
+  {
+   "fieldname": "usein_otherplaces",
+   "fieldtype": "Data",
+   "label": "Use at Other Places",
+   "default": "No"
+  },
+  {
+   "fieldname": "tod_bill",
+   "fieldtype": "Data",
+   "label": "TOD Bill",
+   "default": "No"
+  },
+  {
+   "fieldname": "completion_date",
+   "fieldtype": "Date",
+   "label": "Expected Completion Date"
+  },
+  {
+   "fieldname": "place_anx1",
+   "fieldtype": "Data",
+   "label": "Annexure I Place",
+   "default": "Thalikulam"
+  },
+  {
+   "fieldname": "date_anx1",
+   "fieldtype": "Date",
+   "label": "Annexure I Date",
+   "default": "Today"
+  },
+  {
+   "fieldname": "annexure_2_details",
+   "fieldtype": "Section Break",
+   "label": "Annexure II"
+  },
+  {
+   "fieldname": "component_details",
+   "fieldtype": "Small Text",
+   "label": "Component Details Included",
+   "default": "Yes"
+  },
+  {
+   "fieldname": "component_specification",
+   "fieldtype": "Small Text",
+   "label": "Meter Specifications",
+   "default": "Production Meter: yes\nNet Meter: NO"
+  },
+  {
+   "fieldname": "images_included",
+   "fieldtype": "Data",
+   "label": "Schematic Images Included",
+   "default": "Yes"
+  },
+  {
+   "fieldname": "completion_date_anx2",
+   "fieldtype": "Date",
+   "label": "Annexure II Expected Completion Date"
+  },
+  {
+   "fieldname": "place_anx2",
+   "fieldtype": "Data",
+   "label": "Annexure II Place"
+  },
+  {
+   "fieldname": "date_anx2",
+   "fieldtype": "Date",
+   "label": "Annexure II Date"
+  },
+  {
+   "fieldname": "annexure_3_details",
+   "fieldtype": "Section Break",
+   "label": "Annexure III"
+  },
+  {
+   "fieldname": "solar_regno",
+   "fieldtype": "Data",
+   "label": "Solar Registration Number"
+  },
+  {
+   "fieldname": "specification_anx3",
+   "fieldtype": "Small Text",
+   "label": "Technical Specifications Included",
+   "default": "Yes"
+  },
+  {
+   "fieldname": "inspection_certificate",
+   "fieldtype": "Small Text",
+   "label": "Inspection Certificate Reference"
+  },
+  {
+   "fieldname": "place_anx3",
+   "fieldtype": "Data",
+   "label": "Annexure III Place"
+  },
+  {
+   "fieldname": "date_anx3",
+   "fieldtype": "Date",
+   "label": "Annexure III Date"
+  },
+  {
+   "fieldname": "acknowledgement_details",
+   "fieldtype": "Section Break",
+   "label": "Office Acknowledgement"
+  },
+  {
+   "fieldname": "acknowledgement_name",
+   "fieldtype": "Data",
+   "label": "Acknowledged Name"
+  },
+  {
+   "fieldname": "acknowledgement_date",
+   "fieldtype": "Date",
+   "label": "Acknowledgement Date"
+  },
+  {
+   "fieldname": "application_fee_paid",
+   "fieldtype": "Data",
+   "label": "Application Fee Paid"
+  },
+  {
+   "fieldname": "application_registration_number",
+   "fieldtype": "Data",
+   "label": "Application Registration Number"
+  },
+  {
+   "fieldname": "acknowledging_officer",
+   "fieldtype": "Data",
+   "label": "Acknowledging Officer"
+  },
+  {
+   "fieldname": "officer_designation",
+   "fieldtype": "Data",
+   "label": "Officer Designation"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-09-02 17:07:22.209027",
+ "modified": "2026-10-01 20:00:00.000000",
  "modified_by": "Administrator",
  "module": "KSEB Grid Data",
  "name": "KSEB Grid Check",
