@@ -19,7 +19,7 @@ No new generation action reads a fillable PDF template.
 The app bundles Manjari Regular and Bold from the official SMC distribution,
 with its SIL Open Font License in `wahni_kseb/public/fonts/manjari/OFL.txt`.
 The fonts are embedded through print CSS, so rendering requires no external font
-service. The templates preserve the Malayalam text, table/receipt structure,
+service. The print formats preserve the Malayalam text, table/receipt structure,
 and signature spaces of the original annexures.
 
 Deploy this update together with the corresponding `wahni_solar` native-document
