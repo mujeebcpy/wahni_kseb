@@ -47,14 +47,22 @@ function open_kseb_lookup_dialog(frm, preferred_method = "bill") {
                 default: frm.doc.custom_kseb_connected_mobile_no
             },
             {
+                fieldname: "bill_captcha_image",
+                fieldtype: "HTML"
+            },
+            {
+                fieldname: "bill_captcha_code",
+                fieldtype: "Data",
+                label: __("Enter Bill CAPTCHA")
+            },
+            {
                 fieldname: "captcha_image",
-                fieldtype: "HTML",
-                label: __("CAPTCHA")
+                fieldtype: "HTML"
             },
             {
                 fieldname: "captcha_code",
                 fieldtype: "Data",
-                label: __("Enter CAPTCHA"),
+                label: __("Enter Transformer CAPTCHA"),
                 reqd: 1
             }
         ],
@@ -67,34 +75,79 @@ function open_kseb_lookup_dialog(frm, preferred_method = "bill") {
             run_bill_lookup(frm, dialog, values);
         }
     });
-    dialog.__kseb = { uniqueId: null, options: null };
+    dialog.__kseb = { uniqueId: null, billSessionId: null, options: null };
     dialog.show();
     update_lookup_dialog(dialog);
 }
 
+// Bill lookup needs a bill CAPTCHA (kseb.in) and a transformer CAPTCHA (wss.kseb.in).
+// Each CAPTCHA can be submitted only once, so both are reloaded after every failed attempt.
+const KSEB_CAPTCHAS = {
+    bill: {
+        method: "wahni_kseb.api.get_bill_captcha",
+        idKey: "session_id",
+        stateKey: "billSessionId",
+        imageField: "bill_captcha_image",
+        codeField: "bill_captcha_code",
+        label: __("Bill CAPTCHA")
+    },
+    transformer: {
+        method: "wahni_kseb.api.get_grid_capacity_captcha",
+        idKey: "unique_id",
+        stateKey: "uniqueId",
+        imageField: "captcha_image",
+        codeField: "captcha_code",
+        label: __("Transformer CAPTCHA")
+    }
+};
+
 function update_lookup_dialog(dialog) {
     const method = dialog.get_value("method");
-    dialog.set_df_property("registered_mobile", "reqd", method === "bill");
-    dialog.set_df_property("registered_mobile", "hidden", method !== "bill");
+    const is_bill = method === "bill";
+    const hide_captchas = Boolean(dialog.__kseb.options);
+    dialog.set_df_property("registered_mobile", "reqd", is_bill);
+    dialog.set_df_property("registered_mobile", "hidden", !is_bill);
     dialog.get_field("method_note").$wrapper.html(
-        method === "bill"
-            ? `<p class="text-muted">${__("Bill lookup retrieves bill details and matches its transformer using the same CAPTCHA-protected transformer service.")}</p>`
+        is_bill
+            ? `<p class="text-muted">${__("Bill lookup retrieves bill details and matches its transformer. It needs two CAPTCHAs: one for the bill and one for the transformer service.")}</p>`
             : `<p class="text-muted">${__("Select transformer retrieves section and grid capacity details only. It does not retrieve bill details.")}</p>`
     );
-    dialog.set_df_property("captcha_image", "hidden", Boolean(dialog.__kseb.options));
-    dialog.set_df_property("captcha_code", "hidden", Boolean(dialog.__kseb.options));
-    if (!dialog.__kseb.options && !dialog.__kseb.uniqueId) {
-        load_kseb_captcha(dialog);
+    dialog.set_df_property("bill_captcha_image", "hidden", !is_bill || hide_captchas);
+    dialog.set_df_property("bill_captcha_code", "hidden", !is_bill || hide_captchas);
+    dialog.set_df_property("bill_captcha_code", "reqd", is_bill && !hide_captchas);
+    dialog.set_df_property("captcha_image", "hidden", hide_captchas);
+    dialog.set_df_property("captcha_code", "hidden", hide_captchas);
+    if (hide_captchas) return;
+    if (!dialog.__kseb.uniqueId) {
+        load_kseb_captcha(dialog, "transformer");
+    }
+    if (is_bill && !dialog.__kseb.billSessionId) {
+        load_kseb_captcha(dialog, "bill");
+    }
+}
+
+function reload_kseb_captchas(dialog) {
+    load_kseb_captcha(dialog, "transformer");
+    if (dialog.get_value("method") === "bill") {
+        load_kseb_captcha(dialog, "bill");
+    } else {
+        dialog.__kseb.billSessionId = null;
     }
 }
 
 function run_bill_lookup(frm, dialog, values) {
+    if (!dialog.__kseb.uniqueId || !dialog.__kseb.billSessionId) {
+        frappe.msgprint(__("Please wait for the CAPTCHAs to load or refresh them."));
+        return;
+    }
     frappe.call({
         method: "wahni_kseb.api.check_grid_capacity",
         args: {
             lead: frm.doc.name,
             consumer_no: values.consumer_no,
             registered_mobile: values.registered_mobile,
+            bill_captcha_code: values.bill_captcha_code,
+            bill_session_id: dialog.__kseb.billSessionId,
             captcha_code: values.captcha_code,
             unique_id: dialog.__kseb.uniqueId
         },
@@ -107,13 +160,13 @@ function run_bill_lookup(frm, dialog, values) {
         },
         error(xhr) {
             const message = get_frappe_error_message(xhr);
-            if (is_kseb_validation_error(message)) return;
+            reload_kseb_captchas(dialog);
+            if (is_kseb_validation_error(message) || is_kseb_captcha_error(message)) return;
 
             frappe.confirm(
                 __("Bill lookup failed. Would you like to try transformer options? This method requires a CAPTCHA and does not retrieve bill details."),
                 () => {
                     dialog.set_value("method", "options");
-                    dialog.__kseb.uniqueId = null;
                     dialog.__kseb.options = null;
                     update_lookup_dialog(dialog);
                 }
@@ -122,22 +175,28 @@ function run_bill_lookup(frm, dialog, values) {
     });
 }
 
-function load_kseb_captcha(dialog) {
-    dialog.__kseb.uniqueId = null;
-    dialog.set_value("captcha_code", "");
-    dialog.get_field("captcha_image").$wrapper.html(`<p class="text-muted">${__("Loading CAPTCHA...")}</p>`);
+function load_kseb_captcha(dialog, kind) {
+    const config = KSEB_CAPTCHAS[kind];
+    const $wrapper = dialog.get_field(config.imageField).$wrapper;
+    dialog.__kseb[config.stateKey] = null;
+    dialog.set_value(config.codeField, "");
+    $wrapper.html(
+        `<label class="control-label">${config.label}</label>` +
+        `<p class="text-muted">${__("Loading CAPTCHA...")}</p>`
+    );
     frappe.call({
-        method: "wahni_kseb.api.get_grid_capacity_captcha",
+        method: config.method,
         freeze: true,
         freeze_message: __("Loading KSEB CAPTCHA..."),
         callback(r) {
-            if (!r.message || !r.message.image || !r.message.unique_id) return;
-            dialog.__kseb.uniqueId = r.message.unique_id;
-            dialog.get_field("captcha_image").$wrapper.html(
-                `<img src="${frappe.utils.escape_html(r.message.image)}" alt="${__("KSEB CAPTCHA")}" style="width: 360px; max-width: 100%; height: auto; image-rendering: auto;"> ` +
-                `<button type="button" class="btn btn-default btn-xs kseb-refresh-captcha">${__("Refresh")}</button>`
+            if (!r.message || !r.message.image || !r.message[config.idKey]) return;
+            dialog.__kseb[config.stateKey] = r.message[config.idKey];
+            $wrapper.html(
+                `<label class="control-label">${config.label}</label><div>` +
+                `<img src="${frappe.utils.escape_html(r.message.image)}" alt="${config.label}" style="width: 360px; max-width: 100%; height: auto; image-rendering: auto;"> ` +
+                `<button type="button" class="btn btn-default btn-xs kseb-refresh-captcha">${__("Refresh")}</button></div>`
             );
-            dialog.get_field("captcha_image").$wrapper.find(".kseb-refresh-captcha").on("click", () => load_kseb_captcha(dialog));
+            $wrapper.find(".kseb-refresh-captcha").on("click", () => load_kseb_captcha(dialog, kind));
         }
     });
 }
@@ -161,7 +220,7 @@ function fetch_transformer_options(frm, dialog, values) {
             if (!r.message) return;
             if (!r.message.transformers.length) {
                 frappe.msgprint(__("No transformer options were returned for this consumer."));
-                load_kseb_captcha(dialog);
+                load_kseb_captcha(dialog, "transformer");
                 return;
             }
             dialog.__kseb.options = {
@@ -171,6 +230,9 @@ function fetch_transformer_options(frm, dialog, values) {
             };
             dialog.hide();
             show_transformer_choices(frm, dialog.__kseb.options);
+        },
+        error() {
+            load_kseb_captcha(dialog, "transformer");
         }
     });
 }
@@ -242,6 +304,10 @@ function get_frappe_error_message(xhr) {
     } catch (e) {
         return xhr.responseText || "";
     }
+}
+
+function is_kseb_captcha_error(message) {
+    return /captcha rejected by kseb|captcha is required/i.test(message);
 }
 
 function is_kseb_validation_error(message) {

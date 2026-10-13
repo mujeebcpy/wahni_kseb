@@ -2,11 +2,25 @@ import base64
 
 import frappe
 from frappe.utils import now_datetime
-from kseb_client import KSEBClient, KSEBValidationError, KSEBClientError
+from kseb_client import KSEBCaptchaError, KSEBClient, KSEBValidationError, KSEBClientError
 from wahni_kseb.annexure.printing import generate_annexure
 
+# The Lead dialog looks for this prefix to reload the CAPTCHAs instead of offering a fallback.
+CAPTCHA_REJECTED = "CAPTCHA rejected by KSEB"
+
+
+def _captcha_response(captcha, id_field, id_value):
+    content_type = captcha.content_type or "image/png"
+    return {
+        id_field: id_value,
+        "image": f"data:{content_type};base64,{base64.b64encode(captcha.image).decode('ascii')}",
+    }
+
+
 @frappe.whitelist()
-def check_grid_capacity(lead, consumer_no, registered_mobile, captcha_code, unique_id):
+def check_grid_capacity(
+    lead, consumer_no, registered_mobile, bill_captcha_code, bill_session_id, captcha_code, unique_id
+):
     if not lead:
         frappe.throw("Lead is required")
 
@@ -15,8 +29,10 @@ def check_grid_capacity(lead, consumer_no, registered_mobile, captcha_code, uniq
 
     if not registered_mobile:
         frappe.throw("Registered Mobile is required")
+    if not bill_captcha_code or not bill_session_id:
+        frappe.throw("Bill CAPTCHA is required. Please load a new CAPTCHA.")
     if not captcha_code or not unique_id:
-        frappe.throw("CAPTCHA session is required. Please load a new CAPTCHA.")
+        frappe.throw("Transformer CAPTCHA is required. Please load a new CAPTCHA.")
 
     try:
         client = KSEBClient()
@@ -24,12 +40,17 @@ def check_grid_capacity(lead, consumer_no, registered_mobile, captcha_code, uniq
         result = client.get_grid_capacity(
             consumer_no=consumer_no,
             mobile=registered_mobile,
+            bill_captcha_code=bill_captcha_code,
+            bill_session_id=bill_session_id,
             captcha_code=captcha_code,
             unique_id=unique_id,
         )
 
     except KSEBValidationError as e:
         frappe.throw(str(e))
+
+    except KSEBCaptchaError as e:
+        frappe.throw(f"{CAPTCHA_REJECTED}: {e}")
 
     except KSEBClientError as e:
         frappe.throw(
@@ -59,15 +80,24 @@ def check_grid_capacity(lead, consumer_no, registered_mobile, captcha_code, uniq
 
 
 @frappe.whitelist()
+def get_bill_captcha():
+    """Return a bill download CAPTCHA for the bill lookup flow."""
+    try:
+        captcha = KSEBClient().get_bill_captcha()
+        return _captcha_response(captcha, "session_id", captcha.session_id)
+    except KSEBClientError as e:
+        frappe.throw(f"Unable to retrieve KSEB bill CAPTCHA: {e}")
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "KSEB CAPTCHA Error")
+        frappe.throw("Unable to retrieve the KSEB bill CAPTCHA. Please try again later.")
+
+
+@frappe.whitelist()
 def get_grid_capacity_captcha():
-    """Return a transformer lookup CAPTCHA for the interactive fallback flow."""
+    """Return a transformer lookup CAPTCHA, used by both lookup methods."""
     try:
         captcha = KSEBClient().get_transformer_captcha()
-        content_type = captcha.content_type or "image/png"
-        return {
-            "unique_id": captcha.unique_id,
-            "image": f"data:{content_type};base64,{base64.b64encode(captcha.image).decode('ascii')}",
-        }
+        return _captcha_response(captcha, "unique_id", captcha.unique_id)
     except KSEBClientError as e:
         frappe.throw(f"Unable to retrieve KSEB CAPTCHA: {e}")
     except Exception:
@@ -95,6 +125,8 @@ def get_grid_capacity_options(lead, consumer_no, captcha_code, unique_id):
         )
     except KSEBValidationError as e:
         frappe.throw(str(e))
+    except KSEBCaptchaError as e:
+        frappe.throw(f"{CAPTCHA_REJECTED}: {e}")
     except KSEBClientError as e:
         frappe.throw(f"Unable to retrieve KSEB transformer options: {e}")
     except Exception:
