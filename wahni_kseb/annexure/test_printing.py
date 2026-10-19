@@ -26,6 +26,8 @@ class TestNativeAnnexures(unittest.TestCase):
         self.assertEqual(values["date_anx1"], "01/09/2026")
         self.assertEqual(values["date_anx2"], "")
         self.assertEqual(values["completion_date_anx2"], "February 2027")
+        self.assertEqual(values["completion_date"], printing.month_year())
+        self.assertEqual(printing.month_year("October 2026"), "October 2026")
         self.assertEqual(values["capacity"], "5.5 kW")
         self.assertIn("അനിൽ കുമാർ", values["name_address"])
         self.assertIn("data:font/ttf;base64", values["font_css"])

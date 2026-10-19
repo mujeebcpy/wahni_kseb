@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_bulk_edit": 1,
  "allow_rename": 1,
  "autoname": "KSEB-GRID-.#####",
  "creation": "2026-08-13 15:00:00",
@@ -61,14 +62,7 @@
   "specification_anx3",
   "inspection_certificate",
   "place_anx3",
-  "date_anx3",
-  "acknowledgement_details",
-  "acknowledgement_name",
-  "acknowledgement_date",
-  "application_fee_paid",
-  "application_registration_number",
-  "acknowledging_officer",
-  "officer_designation"
+  "date_anx3"
  ],
  "fields": [
   {
@@ -254,39 +248,39 @@
    "label": "Annexure I"
   },
   {
+   "default": "Rooftop",
    "fieldname": "is_rooftop",
    "fieldtype": "Data",
-   "label": "Installation Type",
-   "default": "Rooftop"
+   "label": "Installation Type"
   },
   {
+   "default": "No",
    "fieldname": "usein_otherplaces",
    "fieldtype": "Data",
-   "label": "Use at Other Places",
-   "default": "No"
+   "label": "Use at Other Places"
   },
   {
+   "default": "No",
    "fieldname": "tod_bill",
    "fieldtype": "Data",
-   "label": "TOD Bill",
-   "default": "No"
+   "label": "TOD Bill"
   },
   {
    "fieldname": "completion_date",
-   "fieldtype": "Date",
+   "fieldtype": "Data",
    "label": "Expected Completion Date"
   },
   {
+   "default": "Thalikulam",
    "fieldname": "place_anx1",
    "fieldtype": "Data",
-   "label": "Annexure I Place",
-   "default": "Thalikulam"
+   "label": "Annexure I Place"
   },
   {
+   "default": "Today",
    "fieldname": "date_anx1",
    "fieldtype": "Date",
-   "label": "Annexure I Date",
-   "default": "Today"
+   "label": "Annexure I Date"
   },
   {
    "fieldname": "annexure_2_details",
@@ -294,26 +288,26 @@
    "label": "Annexure II"
   },
   {
+   "default": "Yes",
    "fieldname": "component_details",
    "fieldtype": "Small Text",
-   "label": "Component Details Included",
-   "default": "Yes"
+   "label": "Component Details Included"
   },
   {
+   "default": "Production Meter: yes\nNet Meter: NO",
    "fieldname": "component_specification",
    "fieldtype": "Small Text",
-   "label": "Meter Specifications",
-   "default": "Production Meter: yes\nNet Meter: NO"
+   "label": "Meter Specifications"
   },
   {
+   "default": "Yes",
    "fieldname": "images_included",
    "fieldtype": "Data",
-   "label": "Schematic Images Included",
-   "default": "Yes"
+   "label": "Schematic Images Included"
   },
   {
    "fieldname": "completion_date_anx2",
-   "fieldtype": "Date",
+   "fieldtype": "Data",
    "label": "Annexure II Expected Completion Date"
   },
   {
@@ -337,10 +331,10 @@
    "label": "Solar Registration Number"
   },
   {
+   "default": "Yes",
    "fieldname": "specification_anx3",
    "fieldtype": "Small Text",
-   "label": "Technical Specifications Included",
-   "default": "Yes"
+   "label": "Technical Specifications Included"
   },
   {
    "fieldname": "inspection_certificate",
@@ -356,46 +350,11 @@
    "fieldname": "date_anx3",
    "fieldtype": "Date",
    "label": "Annexure III Date"
-  },
-  {
-   "fieldname": "acknowledgement_details",
-   "fieldtype": "Section Break",
-   "label": "Office Acknowledgement"
-  },
-  {
-   "fieldname": "acknowledgement_name",
-   "fieldtype": "Data",
-   "label": "Acknowledged Name"
-  },
-  {
-   "fieldname": "acknowledgement_date",
-   "fieldtype": "Date",
-   "label": "Acknowledgement Date"
-  },
-  {
-   "fieldname": "application_fee_paid",
-   "fieldtype": "Data",
-   "label": "Application Fee Paid"
-  },
-  {
-   "fieldname": "application_registration_number",
-   "fieldtype": "Data",
-   "label": "Application Registration Number"
-  },
-  {
-   "fieldname": "acknowledging_officer",
-   "fieldtype": "Data",
-   "label": "Acknowledging Officer"
-  },
-  {
-   "fieldname": "officer_designation",
-   "fieldtype": "Data",
-   "label": "Officer Designation"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-01 20:00:00.000000",
+ "modified": "2026-10-19 17:00:00.000000",
  "modified_by": "Administrator",
  "module": "KSEB Grid Data",
  "name": "KSEB Grid Check",
@@ -426,6 +385,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],

@@ -1,4 +1,17 @@
 frappe.ui.form.on("KSEB Grid Check", {
+    onload(frm) {
+        if (!frm.is_new()) {
+            return;
+        }
+
+        const month_year = moment().locale("en").format("MMMM YYYY");
+        ["completion_date", "completion_date_anx2"].forEach((field) => {
+            if (!frm.doc[field]) {
+                frm.set_value(field, month_year);
+            }
+        });
+    },
+
     refresh(frm) {
         if (frm.is_new()) {
             return;

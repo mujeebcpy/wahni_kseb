@@ -1,5 +1,6 @@
 """Native annexure print formats. No fillable PDF templates are read."""
 import base64
+import re
 from functools import lru_cache
 from pathlib import Path
 
@@ -8,6 +9,22 @@ from frappe.utils import getdate
 from frappe.utils.file_manager import save_file
 
 PRINT_FORMATS = {1: "KSEB Annexure I", 2: "KSEB Annexure II", 3: "KSEB Annexure III"}
+COMPLETION_FIELDS = ("completion_date", "completion_date_anx2")
+
+
+def month_year(value=None):
+    """Expected completion is shown as "October 2026"; ISO dates saved before these became Data fields are converted."""
+    if not value:
+        return getdate().strftime("%B %Y")
+    try:
+        return getdate(value).strftime("%B %Y") if re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(value)) else value
+    except Exception:
+        return value
+
+
+def set_completion_month(doc):
+    for key in COMPLETION_FIELDS:
+        doc.set(key, month_year(doc.get(key)))
 
 
 @lru_cache(maxsize=1)
@@ -36,8 +53,8 @@ def print_context(doc):
             doc.get("registered_mobile"), doc.get("customer_email"), doc.get("customer_address")
         ])),
         "capacity": f"{doc.proposed_solar_capacity:g} kW" if doc.proposed_solar_capacity else "",
-        **{key: date_value(key) for key in ("completion_date", "date_anx1", "date_anx2", "date_anx3", "acknowledgement_date")},
-        "completion_date_anx2": date_value("completion_date_anx2", "%B %Y"),
+        **{key: date_value(key) for key in ("date_anx1", "date_anx2", "date_anx3")},
+        **{key: month_year(doc.get(key)) for key in COMPLETION_FIELDS},
     }
 
 
