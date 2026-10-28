@@ -154,7 +154,7 @@ function render_verify_step(dialog, status) {
     $wrapper.html(`
         ${dialog.__kseb.billDone ? `<p class="text-success">${__("Bill details saved.")}</p>` : ""}
         <ol class="text-muted" style="padding-left: 18px;">
-            <li>${__("Click <b>Verify on KSEB</b>. The KSEB page opens in a new window.")}</li>
+            <li>${__("Click <b>Verify on KSEB</b>. The KSEB page opens in a new tab.")}</li>
             <li>${__("Complete the Cloudflare check there. Do not press KSEB's own button.")}</li>
             <li>${__("Click the <b>KSEB → ERPNext</b> bookmarklet. The capacity is fetched automatically.")}</li>
         </ol>
@@ -178,8 +178,9 @@ function set_verify_status(dialog, message, error = false) {
 function open_kseb_verify_window(dialog) {
     dialog.set_value("turnstile_token", "");
     // Must run in the click handler, or the browser blocks the popup. No "noopener":
-    // the bookmarklet needs window.opener to send the token back.
-    const popup = window.open(KSEB_VERIFY_URL, "kseb_verify", "popup,width=1000,height=850");
+    // the bookmarklet needs window.opener to send the token back. No window features either:
+    // Chrome hides the bookmarks bar in popup windows, so open a normal tab instead.
+    const popup = window.open(KSEB_VERIFY_URL, "kseb_verify");
     if (!popup) {
         frappe.msgprint(__("The browser blocked the KSEB window. Allow popups for this site and try again."));
         return;
