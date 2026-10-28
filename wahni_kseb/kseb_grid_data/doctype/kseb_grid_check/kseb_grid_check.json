@@ -33,6 +33,7 @@
   "division_email",
   "section_break_transformer",
   "transformer_name",
+  "transformer_capacity_kva",
   "allowed_cap",
   "regi",
   "column_break_qqgc",
@@ -41,8 +42,10 @@
   "proposed_solar_capacity",
   "section_break_result",
   "grid_availability",
+  "lookup_method",
   "column_break_ymhl",
   "last_checked",
+  "kseb_as_on",
   "annexure_1_details",
   "is_rooftop",
   "usein_otherplaces",
@@ -178,13 +181,20 @@
    "label": "DTR / Transformer"
   },
   {
+   "fieldname": "transformer_capacity_kva",
+   "fieldtype": "Float",
+   "label": "Transformer Capacity (kVA)"
+  },
+  {
    "fieldname": "allowed_cap",
    "fieldtype": "Float",
    "label": "Allowed Solar Capacity (kW)"
   },
   {
+   "description": "No longer reported by KSEB",
    "fieldname": "regi",
    "fieldtype": "Float",
+   "hidden": 1,
    "label": "Registered Solar Capacity (kW)"
   },
   {
@@ -206,6 +216,13 @@
    "fieldname": "grid_availability",
    "fieldtype": "Data",
    "label": "Grid Availability"
+  },
+  {
+   "fieldname": "lookup_method",
+   "fieldtype": "Select",
+   "label": "Lookup Method",
+   "options": "\nBill\nWithout Bill",
+   "read_only": 1
   },
   {
    "fieldname": "column_break_dasy",
@@ -240,6 +257,12 @@
    "fieldname": "last_checked",
    "fieldtype": "Datetime",
    "label": "Last Checked",
+   "read_only": 1
+  },
+  {
+   "fieldname": "kseb_as_on",
+   "fieldtype": "Data",
+   "label": "KSEB Data As On",
    "read_only": 1
   },
   {
@@ -354,7 +377,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-19 17:00:00.000000",
+ "modified": "2026-10-28 15:00:00.000000",
  "modified_by": "Administrator",
  "module": "KSEB Grid Data",
  "name": "KSEB Grid Check",

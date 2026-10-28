@@ -7,10 +7,35 @@ frappe.ui.form.on("Lead", {
             () => open_kseb_lookup_dialog(frm),
             __("Action")
         );
+        frm.add_custom_button(
+            __("Install KSEB Bookmarklet"),
+            () => open_bookmarklet_install_dialog(),
+            __("Action")
+        );
     }
 });
 
-function open_kseb_lookup_dialog(frm, preferred_method = "bill") {
+// The transformer lookup is protected by Cloudflare Turnstile on the KSEB website. The user
+// completes the check in a popup and clicks our bookmarklet, which posts the token back here.
+const KSEB_VERIFY_URL = "https://wss.kseb.in/selfservices/reCap";
+const KSEB_VERIFY_ORIGIN = "https://wss.kseb.in";
+const KSEB_MESSAGE_TYPE = "wahni-kseb-turnstile";
+const KSEB_BOOKMARKLET_VERSION = 1;
+const KSEB_BOOKMARKLET_USED_KEY = "wahni_kseb_bookmarklet_used";
+
+function open_kseb_lookup_dialog(frm) {
+    const consumer_no = frm.doc.custom_kseb_consumer_no;
+    const mobile = frm.doc.custom_kseb_connected_mobile_no;
+    if (!consumer_no) {
+        frappe.msgprint(__("Set the KSEB Consumer Number on this Lead first."));
+        return;
+    }
+
+    const methods = [{ label: __("Without bill details"), value: "without_bill" }];
+    if (mobile) {
+        methods.unshift({ label: __("Bill lookup"), value: "bill" });
+    }
+
     const dialog = new frappe.ui.Dialog({
         title: __("Check KSEB Grid Capacity"),
         fields: [
@@ -18,33 +43,25 @@ function open_kseb_lookup_dialog(frm, preferred_method = "bill") {
                 fieldname: "method",
                 fieldtype: "Select",
                 label: __("Lookup Method"),
-                options: [
-                    { label: __("Bill lookup"), value: "bill" },
-                    { label: __("Select transformer (without bill details)"), value: "options" }
-                ],
-                default: preferred_method,
+                options: methods,
+                default: mobile ? "bill" : "without_bill",
                 reqd: 1,
                 onchange() {
+                    dialog.__kseb.step = dialog.get_value("method") === "bill" && !dialog.__kseb.billDone ? "bill" : "verify";
                     update_lookup_dialog(dialog);
                 }
             },
             {
-                fieldname: "method_note",
+                fieldname: "consumer_details",
                 fieldtype: "HTML",
-                options: `<p class="text-muted kseb-method-note"></p>`
+                options:
+                    `<p><strong>${__("Consumer Number")}:</strong> ${frappe.utils.escape_html(consumer_no)}` +
+                    (mobile ? `<br><strong>${__("Registered Mobile")}:</strong> ${frappe.utils.escape_html(mobile)}` : "") +
+                    `</p>`
             },
             {
-                fieldname: "consumer_no",
-                fieldtype: "Data",
-                label: __("KSEB Consumer Number"),
-                default: frm.doc.custom_kseb_consumer_no,
-                reqd: 1
-            },
-            {
-                fieldname: "registered_mobile",
-                fieldtype: "Data",
-                label: __("Registered Mobile Number (Bill lookup only)"),
-                default: frm.doc.custom_kseb_connected_mobile_no
+                fieldname: "method_note",
+                fieldtype: "HTML"
             },
             {
                 fieldname: "bill_captcha_image",
@@ -56,236 +73,220 @@ function open_kseb_lookup_dialog(frm, preferred_method = "bill") {
                 label: __("Enter Bill CAPTCHA")
             },
             {
-                fieldname: "captcha_image",
+                fieldname: "verify_html",
                 fieldtype: "HTML"
             },
             {
-                fieldname: "captcha_code",
+                fieldname: "turnstile_token",
                 fieldtype: "Data",
-                label: __("Enter Transformer CAPTCHA"),
-                reqd: 1
+                label: __("Turnstile Token"),
+                description: __("Filled in by the bookmarklet. You can also paste it here.")
             }
         ],
         primary_action_label: __("Continue"),
         primary_action(values) {
-            if (values.method === "options") {
-                fetch_transformer_options(frm, dialog, values);
+            if (dialog.__kseb.step === "bill") {
+                run_bill_lookup(frm, dialog, values);
                 return;
             }
-            run_bill_lookup(frm, dialog, values);
+            fetch_transformer_capacity(frm, dialog, values.turnstile_token);
         }
     });
-    dialog.__kseb = { uniqueId: null, billSessionId: null, options: null };
+
+    dialog.__kseb = {
+        step: mobile ? "bill" : "verify",
+        billDone: false,
+        billSessionId: null,
+        busy: false,
+        popup: null
+    };
+
+    const on_message = (event) => {
+        if (event.origin !== KSEB_VERIFY_ORIGIN) return;
+        const data = event.data;
+        if (!data || data.type !== KSEB_MESSAGE_TYPE || typeof data.token !== "string" || !data.token) return;
+        if (data.v !== KSEB_BOOKMARKLET_VERSION) {
+            frappe.show_alert({ message: __("A newer KSEB bookmarklet is available. Please reinstall it."), indicator: "orange" });
+        }
+        dialog.set_value("turnstile_token", data.token);
+        fetch_transformer_capacity(frm, dialog, data.token);
+    };
+    window.addEventListener("message", on_message);
+    dialog.onhide = () => {
+        window.removeEventListener("message", on_message);
+        if (dialog.__kseb.popup && !dialog.__kseb.popup.closed) {
+            dialog.__kseb.popup.close();
+        }
+    };
+
     dialog.show();
     update_lookup_dialog(dialog);
 }
 
-// Bill lookup needs a bill CAPTCHA (kseb.in) and a transformer CAPTCHA (wss.kseb.in).
-// Each CAPTCHA can be submitted only once, so both are reloaded after every failed attempt.
-const KSEB_CAPTCHAS = {
-    bill: {
-        method: "wahni_kseb.api.get_bill_captcha",
-        idKey: "session_id",
-        stateKey: "billSessionId",
-        imageField: "bill_captcha_image",
-        codeField: "bill_captcha_code",
-        label: __("Bill CAPTCHA")
-    },
-    transformer: {
-        method: "wahni_kseb.api.get_grid_capacity_captcha",
-        idKey: "unique_id",
-        stateKey: "uniqueId",
-        imageField: "captcha_image",
-        codeField: "captcha_code",
-        label: __("Transformer CAPTCHA")
-    }
-};
-
 function update_lookup_dialog(dialog) {
-    const method = dialog.get_value("method");
-    const is_bill = method === "bill";
-    const hide_captchas = Boolean(dialog.__kseb.options);
-    dialog.set_df_property("registered_mobile", "reqd", is_bill);
-    dialog.set_df_property("registered_mobile", "hidden", !is_bill);
+    const is_bill_step = dialog.__kseb.step === "bill";
+    const without_bill = dialog.get_value("method") === "without_bill";
+
     dialog.get_field("method_note").$wrapper.html(
-        is_bill
-            ? `<p class="text-muted">${__("Bill lookup retrieves bill details and matches its transformer. It needs two CAPTCHAs: one for the bill and one for the transformer service.")}</p>`
-            : `<p class="text-muted">${__("Select transformer retrieves section and grid capacity details only. It does not retrieve bill details.")}</p>`
+        without_bill
+            ? `<p class="text-muted">${__("Retrieves section and transformer capacity only. Bill details are not retrieved.")}</p>`
+            : `<p class="text-muted">${__("Retrieves bill details first, then the transformer capacity after the KSEB verification.")}</p>`
     );
-    dialog.set_df_property("bill_captcha_image", "hidden", !is_bill || hide_captchas);
-    dialog.set_df_property("bill_captcha_code", "hidden", !is_bill || hide_captchas);
-    dialog.set_df_property("bill_captcha_code", "reqd", is_bill && !hide_captchas);
-    dialog.set_df_property("captcha_image", "hidden", hide_captchas);
-    dialog.set_df_property("captcha_code", "hidden", hide_captchas);
-    if (hide_captchas) return;
-    if (!dialog.__kseb.uniqueId) {
-        load_kseb_captcha(dialog, "transformer");
-    }
-    if (is_bill && !dialog.__kseb.billSessionId) {
-        load_kseb_captcha(dialog, "bill");
+
+    dialog.set_df_property("bill_captcha_image", "hidden", !is_bill_step);
+    dialog.set_df_property("bill_captcha_code", "hidden", !is_bill_step);
+    dialog.set_df_property("bill_captcha_code", "reqd", is_bill_step);
+    dialog.set_df_property("verify_html", "hidden", is_bill_step);
+    dialog.set_df_property("turnstile_token", "hidden", is_bill_step);
+    dialog.get_primary_btn().text(is_bill_step ? __("Fetch Bill Details") : __("Fetch Capacity"));
+
+    if (is_bill_step) {
+        if (!dialog.__kseb.billSessionId) {
+            load_bill_captcha(dialog);
+        }
+    } else {
+        render_verify_step(dialog);
     }
 }
 
-function reload_kseb_captchas(dialog) {
-    load_kseb_captcha(dialog, "transformer");
-    if (dialog.get_value("method") === "bill") {
-        load_kseb_captcha(dialog, "bill");
-    } else {
-        dialog.__kseb.billSessionId = null;
+function render_verify_step(dialog, status) {
+    const $wrapper = dialog.get_field("verify_html").$wrapper;
+    $wrapper.html(`
+        ${dialog.__kseb.billDone ? `<p class="text-success">${__("Bill details saved.")}</p>` : ""}
+        <ol class="text-muted" style="padding-left: 18px;">
+            <li>${__("Click <b>Verify on KSEB</b>. The KSEB page opens in a new window.")}</li>
+            <li>${__("Complete the Cloudflare check there. Do not press KSEB's own button.")}</li>
+            <li>${__("Click the <b>KSEB → ERPNext</b> bookmarklet. The capacity is fetched automatically.")}</li>
+        </ol>
+        <p><button type="button" class="btn btn-primary btn-sm kseb-open-verify">${__("Verify on KSEB")}</button></p>
+        <p class="kseb-verify-status ${status && status.error ? "text-danger" : "text-muted"}">
+            ${frappe.utils.escape_html((status && status.message) || "")}
+        </p>
+        <div class="kseb-bookmarklet-help"></div>
+    `);
+    $wrapper.find(".kseb-open-verify").on("click", () => open_kseb_verify_window(dialog));
+    render_bookmarklet_help($wrapper.find(".kseb-bookmarklet-help"), bookmarklet_used());
+}
+
+function set_verify_status(dialog, message, error = false) {
+    dialog.get_field("verify_html").$wrapper.find(".kseb-verify-status")
+        .toggleClass("text-danger", error)
+        .toggleClass("text-muted", !error)
+        .text(message);
+}
+
+function open_kseb_verify_window(dialog) {
+    dialog.set_value("turnstile_token", "");
+    // Must run in the click handler, or the browser blocks the popup. No "noopener":
+    // the bookmarklet needs window.opener to send the token back.
+    const popup = window.open(KSEB_VERIFY_URL, "kseb_verify", "popup,width=1000,height=850");
+    if (!popup) {
+        frappe.msgprint(__("The browser blocked the KSEB window. Allow popups for this site and try again."));
+        return;
     }
+    dialog.__kseb.popup = popup;
+    set_verify_status(dialog, __("Waiting for the KSEB verification..."));
 }
 
 function run_bill_lookup(frm, dialog, values) {
-    if (!dialog.__kseb.uniqueId || !dialog.__kseb.billSessionId) {
-        frappe.msgprint(__("Please wait for the CAPTCHAs to load or refresh them."));
+    if (!dialog.__kseb.billSessionId) {
+        frappe.msgprint(__("Please wait for the CAPTCHA to load or refresh it."));
         return;
     }
     frappe.call({
-        method: "wahni_kseb.api.check_grid_capacity",
+        method: "wahni_kseb.api.fetch_bill_details",
         args: {
             lead: frm.doc.name,
-            consumer_no: values.consumer_no,
-            registered_mobile: values.registered_mobile,
             bill_captcha_code: values.bill_captcha_code,
-            bill_session_id: dialog.__kseb.billSessionId,
-            captcha_code: values.captcha_code,
-            unique_id: dialog.__kseb.uniqueId
+            bill_session_id: dialog.__kseb.billSessionId
+        },
+        freeze: true,
+        freeze_message: __("Fetching KSEB bill details..."),
+        callback(r) {
+            if (!r.message) return;
+            dialog.__kseb.billDone = true;
+            dialog.__kseb.step = "verify";
+            update_lookup_dialog(dialog);
+        },
+        error(xhr) {
+            const message = get_frappe_error_message(xhr);
+            // A CAPTCHA can be submitted only once, so load a new one after every failure.
+            load_bill_captcha(dialog);
+            if (is_kseb_validation_error(message) || is_kseb_captcha_error(message)) return;
+
+            frappe.confirm(
+                __("Bill lookup failed. Would you like to continue without bill details?"),
+                () => dialog.set_value("method", "without_bill")
+            );
+        }
+    });
+}
+
+function fetch_transformer_capacity(frm, dialog, token) {
+    if (dialog.__kseb.busy) return;
+    if (!token) {
+        frappe.msgprint(__("Complete the KSEB verification and click the bookmarklet first."));
+        return;
+    }
+    dialog.__kseb.busy = true;
+    set_verify_status(dialog, __("Fetching transformer capacity..."));
+    frappe.call({
+        method: "wahni_kseb.api.fetch_transformer_capacity",
+        args: {
+            lead: frm.doc.name,
+            turnstile_token: token,
+            without_bill: dialog.get_value("method") === "without_bill" ? 1 : 0
         },
         freeze: true,
         freeze_message: __("Checking KSEB grid availability..."),
         callback(r) {
             if (!r.message) return;
+            mark_bookmarklet_used();
             dialog.hide();
             show_grid_check_result(r.message);
         },
         error(xhr) {
+            // A Turnstile token works only once, so the user has to verify again.
+            dialog.set_value("turnstile_token", "");
             const message = get_frappe_error_message(xhr);
-            reload_kseb_captchas(dialog);
-            if (is_kseb_validation_error(message) || is_kseb_captcha_error(message)) return;
-
-            frappe.confirm(
-                __("Bill lookup failed. Would you like to try transformer options? This method requires a CAPTCHA and does not retrieve bill details."),
-                () => {
-                    dialog.set_value("method", "options");
-                    dialog.__kseb.options = null;
-                    update_lookup_dialog(dialog);
-                }
+            set_verify_status(
+                dialog,
+                is_kseb_turnstile_error(message)
+                    ? __("KSEB rejected the verification. Click Verify on KSEB and try again.")
+                    : __("Could not fetch the transformer capacity. Click Verify on KSEB to try again."),
+                true
             );
+        },
+        always() {
+            dialog.__kseb.busy = false;
         }
     });
 }
 
-function load_kseb_captcha(dialog, kind) {
-    const config = KSEB_CAPTCHAS[kind];
-    const $wrapper = dialog.get_field(config.imageField).$wrapper;
-    dialog.__kseb[config.stateKey] = null;
-    dialog.set_value(config.codeField, "");
+function load_bill_captcha(dialog) {
+    const $wrapper = dialog.get_field("bill_captcha_image").$wrapper;
+    const label = __("Bill CAPTCHA");
+    dialog.__kseb.billSessionId = null;
+    dialog.set_value("bill_captcha_code", "");
     $wrapper.html(
-        `<label class="control-label">${config.label}</label>` +
+        `<label class="control-label">${label}</label>` +
         `<p class="text-muted">${__("Loading CAPTCHA...")}</p>`
     );
     frappe.call({
-        method: config.method,
+        method: "wahni_kseb.api.get_bill_captcha",
         freeze: true,
         freeze_message: __("Loading KSEB CAPTCHA..."),
         callback(r) {
-            if (!r.message || !r.message.image || !r.message[config.idKey]) return;
-            dialog.__kseb[config.stateKey] = r.message[config.idKey];
+            if (!r.message || !r.message.image || !r.message.session_id) return;
+            dialog.__kseb.billSessionId = r.message.session_id;
             $wrapper.html(
-                `<label class="control-label">${config.label}</label><div>` +
-                `<img src="${frappe.utils.escape_html(r.message.image)}" alt="${config.label}" style="width: 360px; max-width: 100%; height: auto; image-rendering: auto;"> ` +
+                `<label class="control-label">${label}</label><div>` +
+                `<img src="${frappe.utils.escape_html(r.message.image)}" alt="${label}" style="width: 360px; max-width: 100%; height: auto; image-rendering: auto;"> ` +
                 `<button type="button" class="btn btn-default btn-xs kseb-refresh-captcha">${__("Refresh")}</button></div>`
             );
-            $wrapper.find(".kseb-refresh-captcha").on("click", () => load_kseb_captcha(dialog, kind));
+            $wrapper.find(".kseb-refresh-captcha").on("click", () => load_bill_captcha(dialog));
         }
     });
-}
-
-function fetch_transformer_options(frm, dialog, values) {
-    if (!dialog.__kseb.uniqueId) {
-        frappe.msgprint(__("Please wait for the CAPTCHA to load or refresh it."));
-        return;
-    }
-    frappe.call({
-        method: "wahni_kseb.api.get_grid_capacity_options",
-        args: {
-            lead: frm.doc.name,
-            consumer_no: values.consumer_no,
-            captcha_code: values.captcha_code,
-            unique_id: dialog.__kseb.uniqueId
-        },
-        freeze: true,
-        freeze_message: __("Retrieving KSEB transformer options..."),
-        callback(r) {
-            if (!r.message) return;
-            if (!r.message.transformers.length) {
-                frappe.msgprint(__("No transformer options were returned for this consumer."));
-                load_kseb_captcha(dialog, "transformer");
-                return;
-            }
-            dialog.__kseb.options = {
-                consumerNo: values.consumer_no,
-                section: r.message.section,
-                transformers: r.message.transformers
-            };
-            dialog.hide();
-            show_transformer_choices(frm, dialog.__kseb.options);
-        },
-        error() {
-            load_kseb_captcha(dialog, "transformer");
-        }
-    });
-}
-
-function show_transformer_choices(frm, optionData) {
-    const { consumerNo, section, transformers } = optionData;
-    const options = transformers.map((item) => ({
-        label: item.transformer_name,
-        value: item.transformer_name,
-        description: `${item.balance_available} kW ${__("available")}`
-    }));
-    const selection = new frappe.ui.Dialog({
-        title: __("Select Transformer"),
-        fields: [
-            {
-                fieldname: "note",
-                fieldtype: "HTML",
-                options: `<p class="text-muted">${__("Bill information is not included. Select the transformer serving this consumer.")}</p>`
-            },
-            {
-                fieldname: "transformer_name",
-                fieldtype: "Autocomplete",
-                label: __("Transformer / DTR"),
-                options,
-                reqd: 1
-            }
-        ],
-        primary_action_label: __("Save Selection"),
-        primary_action(values) {
-            const transformer = transformers.find((item) => item.transformer_name === values.transformer_name);
-            if (!transformer) {
-                frappe.msgprint(__("Select a transformer from the suggestions."));
-                return;
-            }
-            frappe.call({
-                method: "wahni_kseb.api.save_grid_capacity_option",
-                args: {
-                    lead: frm.doc.name,
-                    consumer_no: consumerNo,
-                    transformer_data: JSON.stringify(transformer),
-                    section_data: JSON.stringify(section)
-                },
-                freeze: true,
-                freeze_message: __("Saving KSEB grid details..."),
-                callback(r) {
-                    if (!r.message) return;
-                    selection.hide();
-                    show_grid_check_result(r.message);
-                }
-            });
-        }
-    });
-    selection.show();
 }
 
 function show_grid_check_result(result) {
@@ -296,6 +297,78 @@ function show_grid_check_result(result) {
     });
     frappe.set_route("Form", "KSEB Grid Check", result.name);
 }
+
+// Bookmarklet
+
+function kseb_bookmarklet_url() {
+    // The token is only ever posted to this ERPNext site's origin.
+    const target = JSON.stringify(window.location.origin);
+    const source =
+        `(()=>{` +
+        `if(location.origin!=="${KSEB_VERIFY_ORIGIN}"){alert("Open the KSEB DTR Capacity page from ERPNext first.");return;}` +
+        `const t=(document.querySelector('[name="cf-turnstile-response"]')||{}).value;` +
+        `if(!t){alert("Complete the Cloudflare check on this page first.");return;}` +
+        `if(window.opener){window.opener.postMessage({type:"${KSEB_MESSAGE_TYPE}",v:${KSEB_BOOKMARKLET_VERSION},token:t},${target});window.close();return;}` +
+        `navigator.clipboard.writeText(t).then(()=>alert("Token copied. Paste it in the Turnstile Token field in ERPNext."),` +
+        `()=>prompt("Copy this token and paste it in the Turnstile Token field in ERPNext:",t));` +
+        `})();`;
+    return "javascript:" + encodeURIComponent(source);
+}
+
+function render_bookmarklet_help($container, collapsed) {
+    $container.html(`
+        <details ${collapsed ? "" : "open"}>
+            <summary class="text-muted">${__("First time on this browser? Install the bookmarklet")}</summary>
+            <div style="margin-top: 8px;">
+                <p class="text-muted">${__("Drag this button to your bookmarks bar. Press Ctrl+Shift+B if the bar is hidden.")}</p>
+                <p>
+                    <a class="btn btn-default btn-sm kseb-bookmarklet-link">${__("KSEB → ERPNext")}</a>
+                    <button type="button" class="btn btn-link btn-sm kseb-copy-bookmarklet">${__("Copy code instead")}</button>
+                </p>
+                <p class="text-muted small">${__("If dragging does not work, create a new bookmark named \"KSEB → ERPNext\" and paste the copied code as its URL.")}</p>
+            </div>
+        </details>
+    `);
+    const url = kseb_bookmarklet_url();
+    // Set with attr() so the javascript: URL is not altered by HTML sanitising.
+    $container.find(".kseb-bookmarklet-link").attr("href", url).on("click", (event) => {
+        event.preventDefault();
+        frappe.show_alert(__("Drag this button to your bookmarks bar instead of clicking it."));
+    });
+    $container.find(".kseb-copy-bookmarklet").on("click", () => frappe.utils.copy_to_clipboard(url));
+}
+
+function open_bookmarklet_install_dialog() {
+    const dialog = new frappe.ui.Dialog({
+        title: __("Install KSEB Bookmarklet"),
+        fields: [{ fieldname: "help", fieldtype: "HTML" }]
+    });
+    const $wrapper = dialog.get_field("help").$wrapper;
+    $wrapper.html(`
+        <p>${__("The bookmarklet sends the KSEB verification to ERPNext during a grid capacity check. Install it once on each browser.")}</p>
+        <div class="kseb-bookmarklet-help"></div>
+    `);
+    render_bookmarklet_help($wrapper.find(".kseb-bookmarklet-help"), false);
+    dialog.show();
+}
+
+function bookmarklet_used() {
+    try {
+        return window.localStorage.getItem(KSEB_BOOKMARKLET_USED_KEY) === "1";
+    } catch (e) {
+        return false;
+    }
+}
+
+function mark_bookmarklet_used() {
+    try {
+        window.localStorage.setItem(KSEB_BOOKMARKLET_USED_KEY, "1");
+    } catch (e) {
+        // Storage can be blocked; the help box then just stays expanded.
+    }
+}
+
+// Errors
 
 function get_frappe_error_message(xhr) {
     try {
@@ -310,6 +383,10 @@ function is_kseb_captcha_error(message) {
     return /captcha rejected by kseb|captcha is required/i.test(message);
 }
 
+function is_kseb_turnstile_error(message) {
+    return /turnstile verification/i.test(message);
+}
+
 function is_kseb_validation_error(message) {
-    return /validation error|consumer number is required|registered mobile is required|invalid consumer number|invalid mobile number/i.test(message);
+    return /validation error|on the lead first|invalid consumer number|invalid mobile number/i.test(message);
 }

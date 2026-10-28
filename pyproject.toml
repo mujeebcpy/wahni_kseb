@@ -6,9 +6,9 @@ authors = [
 description = "KSEB data integration and solar grid availability"
 requires-python = ">=3.10"
 readme = "README.md"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
-    "kseb-client @ git+https://github.com/mujeebcpy/kseb-client.git@v1.2.0",
+    "kseb-client @ git+https://github.com/mujeebcpy/kseb-client.git@v1.3.0",
 ]
 
 [build-system]
